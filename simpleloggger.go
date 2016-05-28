@@ -10,15 +10,26 @@ import (
 	"strconv"
 )
 
-type SimpleLog struct {
-	simpleLogger *golog.Logger
-	loglevel     int
-	handler      []string
-	logfile      string
-	freeze       bool
+type SimpleLogger struct {
+	goLogger *golog.Logger
+	loglevel int
+	handler  []string
+	logfile  string
+	freeze   bool
 }
 
-func (l *SimpleLog) GetGlobalLogAttr() map[string]string {
+func (l *SimpleLogger) TerminateLogFile() {
+	if l.logfile == "" {
+		return
+	}
+	function, file, line, _ := runtime.Caller(0)
+	funcName := runtime.FuncForPC(function).Name()
+	logmsg := getLogMsg("FATAL", "Terminates log file", funcName, file, line, "]")
+	l.goLogger.Println(logmsg)
+
+}
+
+func (l *SimpleLogger) GetLoggerAttrs() map[string]string {
 	var lvlname string
 	for k, v := range loglevels {
 		if v == l.loglevel {
@@ -34,7 +45,7 @@ func (l *SimpleLog) GetGlobalLogAttr() map[string]string {
 	return attrs
 }
 
-func (l *SimpleLog) Freeze(state bool) error {
+func (l *SimpleLogger) Freeze(state bool) error {
 	if l.freeze {
 		return frozeErrMsg
 	}
@@ -42,7 +53,7 @@ func (l *SimpleLog) Freeze(state bool) error {
 	return nil
 }
 
-func (l *SimpleLog) SetHandlers(path string, overwrite bool) error {
+func (l *SimpleLogger) SetHandlers(path string, overwrite bool) error {
 	if l.freeze {
 		return frozeErrMsg
 	}
@@ -52,29 +63,21 @@ func (l *SimpleLog) SetHandlers(path string, overwrite bool) error {
 	}
 	mw := io.MultiWriter(inode, os.Stderr)
 	l.handler = []string{"file", "stderr"}
-	l.simpleLogger.SetOutput(mw)
+	l.goLogger.SetOutput(mw)
 	return nil
 }
 
-func (l *SimpleLog) SetConsolehandler() error {
+func (l *SimpleLogger) SetConsoleHandler() error {
 	if l.freeze {
 		return frozeErrMsg
 	}
-	l.simpleLogger.SetOutput(os.Stderr)
+	l.goLogger.SetOutput(os.Stderr)
 	l.logfile = ""
 	l.handler = []string{"stderr"}
 	return nil
 }
 
-func (l *SimpleLog) SetCustomHandler(writer io.Writer) error {
-	if l.freeze {
-		return frozeErrMsg
-	}
-	l.simpleLogger.SetOutput(writer)
-	return nil
-}
-
-func (l *SimpleLog) SetFileHandler(path string, overwrite bool) (*os.File, error) {
+func (l *SimpleLogger) SetFileHandler(path string, overwrite bool) (*os.File, error) {
 	var inode *os.File
 	if l.freeze {
 		return inode, frozeErrMsg
@@ -86,14 +89,15 @@ func (l *SimpleLog) SetFileHandler(path string, overwrite bool) (*os.File, error
 	if err != nil {
 		return inode, fmt.Errorf("Failed to create log file. %v", err)
 	}
-	l.simpleLogger.SetOutput(inode)
+	l.goLogger.SetOutput(inode)
 	l.logfile = path
 	l.handler = []string{"file"}
+	inode.WriteString("[")
 	return inode, err
 
 }
 
-func (l *SimpleLog) SetLogLevel(level string) error {
+func (l *SimpleLogger) SetLogLevel(level string) error {
 	if l.freeze {
 		return frozeErrMsg
 	}
@@ -105,28 +109,28 @@ func (l *SimpleLog) SetLogLevel(level string) error {
 	return fmt.Errorf(errmsg)
 }
 
-func (l *SimpleLog) Fatal(msg string, crash bool) {
+func (l *SimpleLogger) Fatal(msg string, crash bool) {
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("FATAL", msg, funcName, file, line)
+	logmsg := getLogMsg("FATAL", msg, funcName, file, line, ",")
 	if crash {
-		l.simpleLogger.Panic(logmsg)
+		l.goLogger.Panic(logmsg)
 	}
-	l.simpleLogger.Println(logmsg)
+	l.goLogger.Println(logmsg)
 
 }
 
-func (l *SimpleLog) Error(msg string) {
+func (l *SimpleLogger) Error(msg string) {
 	if l.loglevel < loglevels["ERROR"] {
 		return
 	}
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("ERROR", msg, funcName, file, line)
-	l.simpleLogger.Println(logmsg)
+	logmsg := getLogMsg("ERROR", msg, funcName, file, line, ",")
+	l.goLogger.Println(logmsg)
 }
 
-func (l *SimpleLog) Exception(msg string, err error) error {
+func (l *SimpleLogger) Exception(msg string, err error) error {
 	if l.loglevel < loglevels["ERROR"] {
 		return nil
 	}
@@ -136,37 +140,37 @@ func (l *SimpleLog) Exception(msg string, err error) error {
 	errMsg := fmt.Sprintf("%s, errorString: %v", msg, err)
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("ERROR", errMsg, funcName, file, line)
-	l.simpleLogger.Println(logmsg)
+	logmsg := getLogMsg("ERROR", errMsg, funcName, file, line, ",")
+	l.goLogger.Println(logmsg)
 	return nil
 }
 
-func (l *SimpleLog) Warning(msg string) {
+func (l *SimpleLogger) Warning(msg string) {
 	if l.loglevel < loglevels["WARNING"] {
 		return
 	}
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("WARNING", msg, funcName, file, line)
-	l.simpleLogger.Println(logmsg)
+	logmsg := getLogMsg("WARNING", msg, funcName, file, line, ",")
+	l.goLogger.Println(logmsg)
 }
 
-func (l *SimpleLog) Info(msg string) {
+func (l *SimpleLogger) Info(msg string) {
 	if l.loglevel < loglevels["INFO"] {
 		return
 	}
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("INFO", msg, funcName, file, line)
-	l.simpleLogger.Println(logmsg)
+	logmsg := getLogMsg("INFO", msg, funcName, file, line, ",")
+	l.goLogger.Println(logmsg)
 }
 
-func (l *SimpleLog) Debug(msg string) {
+func (l *SimpleLogger) Debug(msg string) {
 	if l.loglevel < loglevels["DEBUG"] {
 		return
 	}
 	function, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(function).Name()
-	logmsg := getLogMsg("DEBUG", msg, funcName, file, line)
-	l.simpleLogger.Println(logmsg)
+	logmsg := getLogMsg("DEBUG", msg, funcName, file, line, ",")
+	l.goLogger.Println(logmsg)
 }

@@ -30,7 +30,7 @@ Since this is intended to be an immutable global logger used throughout an appli
 
 ```golang
 
-var globalLog = simplelog.GetGlobalLog()
+var globalLog = sglogger.GetGlobalLogger()
 
 func init(){
 	logdir := "/tmp/httpbenchmark"
@@ -56,18 +56,49 @@ In above example, the init function does the following:
 
 ### Different Log Outputs
 
-You also have the option of only writing to a file or only writing to a console. Instead of the SetHandlers method, which does both, simply invoke either SetConsoleHandler or SetFileHandler methods. If you don't want to write to a file or console, then pass an object that satistifies the io.Writer interface to the SetCustomHandler method.
-
+You also have the option of only writing to a file or only writing to a console. Instead of the SetHandlers method, which does both, simply invoke either SetConsoleHandler or SetFileHandler methods. 
 
 ### Log an Event
 
 In a package where you want to log an event, first define a variable at the top of the package like so.
 ```
-var globalLog = simplelog.GetGlobalLog()
+var globalLog = sglogger.GetGlobalLogger()
 globalLog.Error("Error message")
 globalLog.Warning("Info message")
 
 ```
+
+## Parsing Log Files
+
+The simple global logger's format is json. When the logger writes an event into a file, its actually appending this to a json array. Since a json array is an *ordered* collection of items, the log events appear in the file in the order in which they were generated. For example, if you have three items in the array, then the second log event occurred after the first log event but before the third log event. By default, this will *not* be a valid JSON document. Because objects are being appended to the array, the logger does not add the closing brace to make the array a valid JSON object. 
+
+To make the log file a valid JSON document, you must execute the TerminateLogFile method after all logging has completed. To ensure you only terminate a log file after all log events have completed, make this a defer statement in the main method. Here's an example.
+
+```golang
+package main
+
+var globalLog = sglogger.GetGlobalLogger()
+
+func init(){
+	logdir := "/tmp/httpbenchmark"
+	os.MkdirAll(logdir, 0755)
+	timestamp := time.Now().UTC().Format("2006-01-02T150405")
+	filename := fmt.Sprintf("%s/client_%s.log", logdir, timestamp)
+	err := globalLog.SetHandlers(filename,true)
+	if err != nil {
+		panic(err)
+	}
+	globalLog.SetLogLevel("INFO")
+	globalLog.Freeze(true)
+}
+
+func main(){
+     defer globalLog.TerminateLogFile()
+}
+
+```
+
+ 
 
 ##Supported Log Levels
 Note that like every other logger on the planet that supports levels (except golang's std lib, something i still can't quite believe), if the log level is set lower than the log level you have chosen to log at, then the event will not be logged. For example, if the log level is ERROR and the event is logged at WARNING, then the event will not in fact be logged.

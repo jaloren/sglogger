@@ -26,7 +26,7 @@ func createTempFile(t *testing.T) (filename string) {
 		errMsg := fmt.Sprintf("Failed to create temporary file. Error: %v", err)
 		t.Fatalf(errMsg)
 	}
-	_, err = GlobalLog.SetFileHandler(tmpfile.Name(), true)
+	_, err = GlobalLogger.SetFileHandler(tmpfile.Name(), true)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to set file handler. Error: %v", err)
 		t.Fatalf(errMsg)
@@ -56,20 +56,20 @@ func genLogFails(t *testing.T, msg string, level string) {
 	tempfilename := createTempFile(t)
 	switch {
 	case level == "ERROR":
-		GlobalLog.Error(msg)
+		GlobalLogger.Error(msg)
 	case level == "WARNING":
-		GlobalLog.Warning(msg)
+		GlobalLogger.Warning(msg)
 	case level == "INFO":
-		GlobalLog.Info(msg)
+		GlobalLogger.Info(msg)
 	case level == "DEBUG":
-		GlobalLog.Debug(msg)
+		GlobalLogger.Debug(msg)
 	default:
 		t.Errorf("Log level %v is not valid.", level)
 	}
 	tempfile := getTempFile(t, tempfilename)
 	logdata, err := convertFromJson(t, tempfile, tempfilename)
 	if err == nil {
-		t.Errorf("A log was generated successfully at log level %v. The log level is %v, which means the level should not have been high enough to have generated this log. Log data is: %v", logdata, GlobalLog.loglevel, logdata)
+		t.Errorf("A log was generated successfully at log level %v. The log level is %v, which means the level should not have been high enough to have generated this log. Log data is: %v", logdata, GlobalLogger.loglevel, logdata)
 	}
 }
 
@@ -77,15 +77,15 @@ func genLogSuccessfully(t *testing.T, msg string, level string) {
 	tempfilename := createTempFile(t)
 	switch {
 	case level == "FATAL":
-		GlobalLog.Fatal(msg, false)
+		GlobalLogger.Fatal(msg, false)
 	case level == "ERROR":
-		GlobalLog.Error(msg)
+		GlobalLogger.Error(msg)
 	case level == "WARNING":
-		GlobalLog.Warning(msg)
+		GlobalLogger.Warning(msg)
 	case level == "INFO":
-		GlobalLog.Info(msg)
+		GlobalLogger.Info(msg)
 	case level == "DEBUG":
-		GlobalLog.Debug(msg)
+		GlobalLogger.Debug(msg)
 	default:
 		t.Errorf("Log level %v is not valid.", level)
 	}
@@ -110,14 +110,14 @@ func genLogSuccessfully(t *testing.T, msg string, level string) {
 }
 
 func successfullySetLogLevel(t *testing.T, loglevel string) {
-	err := GlobalLog.SetLogLevel(loglevel)
+	err := GlobalLogger.SetLogLevel(loglevel)
 	if err != nil {
 		t.Errorf("Failed to set log level. Error: %v", err)
 	}
 }
 
 func TestLevels(t *testing.T) {
-	//	defer os.RemoveAll(tmpdir)
+	defer os.RemoveAll(tmpdir)
 	loglevel_names := GetLogLevels()
 	for _, levelname := range loglevel_names {
 		successfullySetLogLevel(t, levelname)
