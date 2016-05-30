@@ -62,13 +62,13 @@ You also have the option of only writing to a file or only writing to a console.
 
 In a package where you want to log an event, first define a variable at the top of the package like so.
 ```golang
-var globalLog = sglogger.GetGlobalLogger()
+var globalLog = sglogger.GlobalLogger
 globalLog.Error("Error message")
 globalLog.Warning("Info message")
 ```
 
 ### Automatically Rotate Logs Based on File Size
-The most common reason for log rotation is to keep the log file from growing to large. This library supports a log rotation policy that automatically rotates logs based on a user-defined file size is reached in bytes. The following example demonstrates this.
+The most common reason for log rotation is to keep the log file from growing to large. This library supports a log rotation policy that automatically rotates logs based on a user-defined file size reached in bytes. The following example demonstrates this policy.
 ```golang
 
 package main
@@ -126,6 +126,8 @@ func main(){
 }
 
 ```
+
+Note you do not need and should avoid using the Rotate method if you are using the rotation policy.
 
 ##Supported Log Levels
 Note that like every other logger on the planet that supports levels (except golang's std lib, something i still can't quite believe), if the log level is set lower than the log level you have chosen to log at, then the event will not be logged. For example, if the log level is ERROR and the event is logged at WARNING, then the event is not logged.
